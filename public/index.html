@@ -1,0 +1,624 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>Control de Despacho y Picking</title>
+  <style>
+    :root {
+      --bg: #0b1329;
+      --card-bg: #1e293b;
+      --card-hover: #27354f;
+      --border: #334155;
+      --text: #f8fafc;
+      --text-muted: #94a3b8;
+      --success: #16a34a;
+      --warning: #d97706;
+      --danger: #dc2626;
+      --accent: #38bdf8;
+      --primary: #2563eb;
+    }
+    * { box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    body { background: var(--bg); color: var(--text); margin: 0; padding: 16px; }
+
+    /* Barra Superior y Pestañas */
+    .top-nav {
+      background: var(--card-bg);
+      padding: 14px 20px;
+      border-radius: 12px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+      border: 1px solid var(--border);
+    }
+    .tabs { display: flex; gap: 8px; }
+    .tab-btn {
+      background: #0f172a;
+      color: var(--text-muted);
+      border: 1px solid var(--border);
+      padding: 10px 18px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: 600;
+      font-size: 15px;
+    }
+    .tab-btn.active {
+      background: var(--primary);
+      color: white;
+      border-color: var(--primary);
+    }
+
+    /* Grid de Rutas */
+    .grid-rutas {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+      gap: 16px;
+    }
+    .card-ruta {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 20px;
+      cursor: pointer;
+      transition: transform 0.15s ease, border-color 0.15s ease;
+    }
+    .card-ruta:hover {
+      transform: translateY(-2px);
+      border-color: var(--accent);
+      background: var(--card-hover);
+    }
+    .card-ruta h3 { margin: 0 0 8px 0; font-size: 20px; color: var(--accent); }
+    .card-meta { font-size: 13px; color: var(--text-muted); margin-bottom: 14px; }
+    .progress-bar-bg {
+      background: #0f172a;
+      border-radius: 8px;
+      height: 10px;
+      overflow: hidden;
+      margin: 10px 0;
+      border: 1px solid var(--border);
+    }
+    .progress-bar-fill {
+      background: var(--success);
+      height: 100%;
+      width: 0%;
+      transition: width 0.3s ease;
+    }
+
+    /* Vista Detalle (Tabla) */
+    .detalle-header {
+      background: var(--card-bg);
+      padding: 14px 20px;
+      border-radius: 12px;
+      margin-bottom: 14px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      align-items: center;
+      justify-content: space-between;
+      border: 1px solid var(--border);
+    }
+    .btn-volver {
+      background: #334155;
+      color: white;
+      border: none;
+      padding: 10px 16px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: 600;
+    }
+    .btn-cerrar-ruta {
+      background: var(--success);
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: 700;
+      font-size: 15px;
+    }
+
+    /* Tabla */
+    .table-responsive {
+      background: var(--card-bg);
+      border-radius: 12px;
+      overflow-x: auto;
+      border: 1px solid var(--border);
+    }
+    table { width: 100%; border-collapse: collapse; text-align: left; }
+    th {
+      background: #111827;
+      padding: 14px 12px;
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--text-muted);
+      border-bottom: 2px solid var(--border);
+    }
+    td {
+      padding: 12px;
+      border-bottom: 1px solid var(--border);
+      font-size: 14px;
+      vertical-align: middle;
+    }
+
+    /* Fila separadora de Superfamilia */
+    tr.cat-divider td {
+      background: #1e3a8a !important;
+      color: #bfdbfe !important;
+      font-weight: 800;
+      font-size: 14px;
+      padding: 11px 14px;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      border-top: 2px solid #3b82f6;
+    }
+
+    /* Resaltados de Estado */
+    tr.st-OK { background-color: rgba(22, 163, 74, 0.15); }
+    tr.st-AJUSTE { background-color: rgba(217, 119, 6, 0.18); }
+    tr.st-NO_SALIO { background-color: rgba(220, 38, 38, 0.18); }
+
+    /* Badge Superfamilia en fila */
+    .badge-superfam {
+      display: inline-block;
+      background: #1e293b;
+      border: 1px solid #3b82f6;
+      color: #93c5fd;
+      padding: 4px 8px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+    }
+
+    /* Badges Cajas y Sueltas */
+    .badge-cajas {
+      display: inline-block;
+      background: #0f172a;
+      border: 1px solid #334155;
+      padding: 3px 8px;
+      border-radius: 6px;
+      font-weight: 700;
+      color: #38bdf8;
+      white-space: nowrap;
+    }
+    .badge-sueltas {
+      display: inline-block;
+      background: #0f172a;
+      border: 1px solid #334155;
+      padding: 3px 8px;
+      border-radius: 6px;
+      font-weight: 700;
+      color: #facc15;
+      white-space: nowrap;
+    }
+
+    /* Botones */
+    .btn {
+      padding: 10px 14px;
+      border: none;
+      border-radius: 8px;
+      font-weight: 700;
+      font-size: 13px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .btn-ok { background: var(--success); color: white; }
+    .btn-warn { background: var(--warning); color: white; }
+    .btn-danger { background: var(--danger); color: white; }
+    .btn-close { background: #475569; color: white; }
+    .actions-box { display: flex; gap: 6px; }
+
+    /* Modal */
+    .modal {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.7);
+      align-items: center;
+      justify-content: center;
+      z-index: 100;
+    }
+    .modal.active { display: flex; }
+    .modal-card {
+      background: var(--card-bg);
+      padding: 24px;
+      border-radius: 12px;
+      width: 90%;
+      max-width: 440px;
+      border: 1px solid var(--border);
+    }
+    .modal-card input, .modal-card textarea {
+      width: 100%;
+      padding: 12px;
+      margin: 8px 0 16px 0;
+      background: #0f172a;
+      color: white;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      font-size: 15px;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="top-nav">
+    <div style="font-weight: 700; font-size: 18px; color: var(--accent);">📦 WMS Picking & Despacho</div>
+    <div class="tabs">
+      <button id="btnTabPendientes" class="tab-btn active" onclick="cambiarTab('pendientes')">🚚 Pendientes</button>
+      <button id="btnTabHistorial" class="tab-btn" onclick="cambiarTab('historial')">📚 Historial Cerrados</button>
+    </div>
+  </div>
+
+  <!-- VISTA 1: TARJETAS DE RUTAS -->
+  <div id="vistaRutas">
+    <div id="gridRutas" class="grid-rutas"></div>
+    <div id="sinRutas" style="display:none; text-align:center; padding: 60px 20px; color: var(--text-muted);">
+      <h3>🎉 No hay rutas pendientes</h3>
+      <p>Todos los consolidados están cerrados o no hay nuevas cargas.</p>
+    </div>
+  </div>
+
+  <!-- VISTA 2: DETALLE DE CHECKLIST DE LA RUTA -->
+  <div id="vistaDetalle" style="display: none;">
+    <div class="detalle-header">
+      <div style="display:flex; align-items:center; gap: 14px;">
+        <button class="btn-volver" onclick="volverARutas()">⬅ Volver a Rutas</button>
+        <div>
+          <h2 id="tituloRutaActual" style="margin:0; font-size: 20px; color: var(--accent);">Ruta: -</h2>
+          <small id="subtituloRutaActual" style="color: var(--text-muted);"></small>
+        </div>
+      </div>
+      <div>
+        <button id="btnCerrarConsolidado" class="btn-cerrar-ruta" onclick="cerrarConsolidadoActual()">🔒 Cerrar Consolidado</button>
+      </div>
+    </div>
+
+    <div class="table-responsive">
+      <table>
+        <thead>
+          <tr>
+            <th>Doc / Lín</th>
+            <th>Superfamilia</th>
+            <th>SKU / Producto</th>
+            <th>Cant. Total</th>
+            <th>Cajas</th>
+            <th>U. Sueltas</th>
+            <th>Cant. Real</th>
+            <th>Estado</th>
+            <th>Observación</th>
+            <th>Marcar Carga</th>
+          </tr>
+        </thead>
+        <tbody id="tablaItems"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Modal Discrepancias / Observaciones -->
+  <div id="modalAjuste" class="modal">
+    <div class="modal-card">
+      <h3 id="modalTitulo" style="margin-top:0;">Ajustar Cantidad / Motivo</h3>
+      <label>Cantidad que subió al camión:</label>
+      <input type="number" id="modalCantReal" min="0">
+      <label>Observación / Novedad:</label>
+      <textarea id="modalObs" rows="3" placeholder="Ej: Faltaron 2 cajas por rotura / Sobrantes"></textarea>
+      <div style="display:flex; justify-content: flex-end; gap: 8px;">
+        <button class="btn btn-close" onclick="cerrarModal()">Cancelar</button>
+        <button class="btn btn-warn" onclick="guardarAjuste()">Guardar</button>
+      </div>
+    </div>
+  </div>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+    import { 
+      getFirestore, 
+      collection, 
+      onSnapshot, 
+      doc, 
+      updateDoc,
+      writeBatch, 
+      enableMultiTabIndexedDbPersistence 
+    } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+    // Configuración de Firebase (conserva tus credenciales exactas)
+    const firebaseConfig = {
+      apiKey: "AIzaSyD-xZbwNlFm...", // Mantén tu API key real
+      authDomain: "consolidados-3dd9c.firebaseapp.com",
+      projectId: "consolidados-3dd9c",
+      storageBucket: "consolidados-3dd9c.appspot.com",
+      messagingSenderId: "33144083494",
+      appId: "1:33144083494:web:e000ee741639ae57a8bf60"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+
+    try {
+      await enableMultiTabIndexedDbPersistence(db);
+    } catch (e) {
+      console.warn("Offline persistence:", e);
+    }
+
+    let todosLosItems = [];
+    let rutaActual = null;
+    let tabActiva = "pendientes";
+    let itemAjustando = null;
+
+    onSnapshot(collection(db, "despachos"), (snapshot) => {
+      todosLosItems = [];
+      snapshot.forEach(d => todosLosItems.push({ id: d.id, ...d.data() }));
+      
+      if (rutaActual) {
+        renderDetalleRuta();
+      } else {
+        renderizarRutas();
+      }
+    });
+
+    window.renderizarRutas = function() {
+      const grid = document.getElementById("gridRutas");
+      const sinRutas = document.getElementById("sinRutas");
+      grid.innerHTML = "";
+
+      const grupos = {};
+
+      todosLosItems.forEach(item => {
+        const rutaKey = `${item.obs_pde || 'SIN RUTA'}_${item.fec_emi || 'SIN FECHA'}`;
+        if (!grupos[rutaKey]) {
+          grupos[rutaKey] = {
+            obs_pde: item.obs_pde || 'SIN RUTA',
+            fec_emi: item.fec_emi,
+            num_doc: item.num_doc,
+            todosCerrados: true,
+            items: []
+          };
+        }
+        if (item.cerrado !== true) {
+          grupos[rutaKey].todosCerrados = false;
+        }
+        grupos[rutaKey].items.push(item);
+      });
+
+      const listaGrupos = Object.values(grupos);
+      listaGrupos.forEach(g => g.cerrado = g.todosCerrados);
+
+      let gruposFiltrados = [];
+      if (tabActiva === "pendientes") {
+        gruposFiltrados = listaGrupos.filter(g => !g.cerrado);
+      } else {
+        gruposFiltrados = listaGrupos.filter(g => g.cerrado);
+      }
+
+      if (gruposFiltrados.length === 0) {
+        sinRutas.style.display = "block";
+        return;
+      }
+      sinRutas.style.display = "none";
+
+      gruposFiltrados.forEach(g => {
+        const total = g.items.length;
+        const listos = g.items.filter(i => i.estado_carga && i.estado_carga !== 'PENDIENTE').length;
+        const porcentaje = Math.round((listos / total) * 100);
+
+        const card = document.createElement("div");
+        card.className = "card-ruta";
+        card.onclick = () => abrirDetalleRuta(g);
+
+        card.innerHTML = `
+          <div style="display:flex; justify-content:space-between; align-items:start;">
+            <h3>📍 ${g.obs_pde}</h3>
+            ${g.cerrado ? '<span style="color:#4ade80; font-size:12px; font-weight:bold;">CERRADO</span>' : ''}
+          </div>
+          <div class="card-meta">
+            📅 Emisión: <strong>${g.fec_emi || '-'}</strong> | Doc: <strong>${g.num_doc || '-'}</strong>
+          </div>
+          <div style="display:flex; justify-content:space-between; font-size:13px;">
+            <span>Progreso revisión:</span>
+            <strong>${listos} de ${total} (${porcentaje}%)</strong>
+          </div>
+          <div class="progress-bar-bg">
+            <div class="progress-bar-fill" style="width: ${porcentaje}%;"></div>
+          </div>
+        `;
+        grid.appendChild(card);
+      });
+    };
+
+    window.cambiarTab = function(tab) {
+      tabActiva = tab;
+      document.getElementById("btnTabPendientes").classList.toggle("active", tab === "pendientes");
+      document.getElementById("btnTabHistorial").classList.toggle("active", tab === "historial");
+      renderizarRutas();
+    };
+
+    window.abrirDetalleRuta = function(grupo) {
+      rutaActual = grupo;
+      document.getElementById("vistaRutas").style.display = "none";
+      document.getElementById("vistaDetalle").style.display = "block";
+
+      document.getElementById("tituloRutaActual").innerText = `Ruta: ${grupo.obs_pde}`;
+      document.getElementById("subtituloRutaActual").innerText = `Fecha: ${grupo.fec_emi} | Doc Grupo: ${grupo.num_doc}`;
+      
+      const btnCerrar = document.getElementById("btnCerrarConsolidado");
+      btnCerrar.style.display = grupo.cerrado ? "none" : "block";
+
+      renderDetalleRuta();
+    };
+
+    window.volverARutas = function() {
+      rutaActual = null;
+      document.getElementById("vistaDetalle").style.display = "none";
+      document.getElementById("vistaRutas").style.display = "block";
+      renderizarRutas();
+    };
+
+    function renderDetalleRuta() {
+      if (!rutaActual) return;
+      const tbody = document.getElementById("tablaItems");
+      tbody.innerHTML = "";
+
+      const itemsDeEstaRuta = todosLosItems.filter(i => 
+        (i.obs_pde || 'SIN RUTA') === rutaActual.obs_pde && 
+        i.fec_emi === rutaActual.fec_emi
+      );
+
+      // Extractor para ordenar números dentro de strings (ej: 'PR00248' -> 248, '101220' -> 101220)
+      const parseSKU = (sku) => {
+        if (!sku) return 0;
+        const num = String(sku).replace(/\D/g, '');
+        return num ? parseInt(num, 10) : 0;
+      };
+
+      // Ordenar: 1° Superfamilia alfabéticamente (A-Z), 2° SKU numéricamente
+      itemsDeEstaRuta.sort((a, b) => {
+        const supA = (a.superfam || a.des_fam || 'GENERAL').toUpperCase();
+        const supB = (b.superfam || b.des_fam || 'GENERAL').toUpperCase();
+        if (supA !== supB) return supA.localeCompare(supB);
+
+        const skuNumA = parseSKU(a.cod_mat);
+        const skuNumB = parseSKU(b.cod_mat);
+        if (skuNumA !== skuNumB) return skuNumA - skuNumB;
+
+        return String(a.cod_mat).localeCompare(String(b.cod_mat));
+      });
+
+      let superfamActual = null;
+
+      itemsDeEstaRuta.forEach(it => {
+        const nombreSuperfam = (it.superfam && it.superfam !== 'NAN' && it.superfam !== '') 
+          ? it.superfam 
+          : (it.des_fam || 'GENERAL');
+
+        // Banner divisorio al cambiar de Superfamilia (colspan="10" para las 10 columnas)
+        if (nombreSuperfam !== superfamActual) {
+          superfamActual = nombreSuperfam;
+          const trBanner = document.createElement("tr");
+          trBanner.className = "cat-divider";
+          trBanner.innerHTML = `<td colspan="10">🏷️ SUPERFAMILIA: ${superfamActual}</td>`;
+          tbody.appendChild(trBanner);
+        }
+
+        const tr = document.createElement("tr");
+        tr.className = `st-${it.estado_carga}`;
+
+        tr.innerHTML = `
+          <td><strong>${it.num_doc}</strong><br><small style="color:var(--text-muted)">Lín: ${it.lin_doc}</small></td>
+          <td><span class="badge-superfam">${nombreSuperfam}</span></td>
+          <td>
+            <strong style="color:var(--accent); font-size:15px;">${it.cod_mat}</strong>
+            ${(it.des_mat && it.des_mat !== 'nan' && it.des_mat !== 'None') ? `<br><small style="color:#cbd5e1;">${it.des_mat}</small>` : ''}
+          </td>
+          <td><strong style="font-size:15px;">${it.pdt_mat}</strong></td>
+          <td><span class="badge-cajas">📦 ${it.cajas ?? 0}</span></td>
+          <td><span class="badge-sueltas">🔸 ${it.sueltas ?? it.pdt_mat}</span></td>
+          <td><strong style="font-size:16px;">${it.cant_real ?? it.pdt_mat}</strong></td>
+          <td>${renderBadge(it.estado_carga)}</td>
+          <td><small style="color:#cbd5e1;">${it.obs_tablet || '-'}</small></td>
+          <td>
+            ${it.cerrado ? '<span style="color:var(--text-muted);">Solo lectura</span>' : `
+              <div class="actions-box">
+                <button class="btn btn-ok" onclick="marcarOK('${it.id}', ${it.pdt_mat})">✔ OK</button>
+                <button class="btn btn-warn" onclick="abrirModal('${it.id}')">± Cant.</button>
+                <button class="btn btn-danger" onclick="marcarNoSalio('${it.id}')">✖ No Salió</button>
+              </div>
+            `}
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    function renderBadge(st) {
+      if (st === 'OK') return '<span style="color:#4ade80; font-weight:bold;">Al Camión</span>';
+      if (st === 'AJUSTE') return '<span style="color:#fbbf24; font-weight:bold;">Diferencia</span>';
+      if (st === 'NO_SALIO') return '<span style="color:#f87171; font-weight:bold;">En Bodega</span>';
+      return '<span style="color:var(--text-muted);">⏳ Pendiente</span>';
+    }
+
+    window.marcarOK = async (id, cant) => {
+      await updateDoc(doc(db, "despachos", id), {
+        ingreso_camion: true,
+        estado_carga: "OK",
+        cant_real: cant,
+        obs_tablet: ""
+      });
+    };
+
+    window.marcarNoSalio = async (id) => {
+      const motivo = prompt("Motivo por el que NO sube al camión:") || "Sin stock / Dañado";
+      await updateDoc(doc(db, "despachos", id), {
+        ingreso_camion: false,
+        estado_carga: "NO_SALIO",
+        cant_real: 0,
+        obs_tablet: motivo
+      });
+    };
+
+    window.abrirModal = (id) => {
+      itemAjustando = todosLosItems.find(i => i.id === id);
+      if (!itemAjustando) return;
+      document.getElementById("modalTitulo").innerText = `Ajustar SKU ${itemAjustando.cod_mat}`;
+      document.getElementById("modalCantReal").value = itemAjustando.cant_real ?? itemAjustando.pdt_mat;
+      document.getElementById("modalObs").value = itemAjustando.obs_tablet || "";
+      document.getElementById("modalAjuste").classList.add("active");
+    };
+
+    window.cerrarModal = () => {
+      document.getElementById("modalAjuste").classList.remove("active");
+      itemAjustando = null;
+    };
+
+    window.guardarAjuste = async () => {
+      if (!itemAjustando) return;
+      const c = parseInt(document.getElementById("modalCantReal").value, 10);
+      const obs = document.getElementById("modalObs").value;
+
+      await updateDoc(doc(db, "despachos", itemAjustando.id), {
+        ingreso_camion: c > 0,
+        estado_carga: "AJUSTE",
+        cant_real: isNaN(c) ? 0 : c,
+        obs_tablet: obs
+      });
+      cerrarModal();
+    };
+
+    window.cerrarConsolidadoActual = async () => {
+      if (!rutaActual) return;
+      
+      const itemsDeEstaRuta = todosLosItems.filter(i => 
+        (i.obs_pde || 'SIN RUTA') === rutaActual.obs_pde && 
+        i.fec_emi === rutaActual.fec_emi
+      );
+
+      const pendientes = itemsDeEstaRuta.filter(i => !i.estado_carga || i.estado_carga === 'PENDIENTE').length;
+
+      if (pendientes > 0) {
+        const confirmar = confirm(`⚠️ Atención: Aún quedan ${pendientes} productos PENDIENTES.\\n\\n¿Estás seguro de que deseas cerrar y archivar este consolidado?`);
+        if (!confirmar) return;
+      } else {
+        const confirmar = confirm(`¿Confirmas el cierre del consolidado para ${rutaActual.obs_pde}? Pasará al historial y no podrá ser editado.`);
+        if (!confirmar) return;
+      }
+
+      const batch = writeBatch(db);
+      const ahora = new Date().toISOString();
+
+      itemsDeEstaRuta.forEach(item => {
+        const ref = doc(db, "despachos", item.id);
+        batch.update(ref, {
+          cerrado: true,
+          fecha_cierre: ahora
+        });
+      });
+
+      await batch.commit();
+      alert(`Consolidado de ${rutaActual.obs_pde} cerrado y archivado en el Historial.`);
+      volverARutas();
+    };
+  </script>
+</body>
+</html>
