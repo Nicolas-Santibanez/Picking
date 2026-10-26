@@ -5,3 +5,5 @@ Adicionalmente, implementé una funcionalidad para exportar hojas de trabajo en 
 Impacto y resultados:
 Reducción del 25% en la tasa de errores de despacho, al clarificar la distinción entre unidades de empaque secundarias (cajas) y primarias (paquetes/unidades), facilitando además la curva de aprendizaje del personal nuevo.
 Mayor trazabilidad y agilidad en el picking, eliminando tiempos muertos operativos y optimizando la asignación de pedidos en bodega.
+
+PD: Tambien se penso en poder generar una revisión web a traves del servicio FireBase, pero por los costos no se finalizo. Tambien se penso en poder brindar este servicio de manera local, disponibilizarlo en la lan de la empresa y conectar los dispositivos celulares a esta red y servicio. De esta forma se tendría acceso a los registros digitales generando un historico.
